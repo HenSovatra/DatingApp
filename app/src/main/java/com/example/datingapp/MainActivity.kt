@@ -1,20 +1,38 @@
 package com.example.datingapp
 
 import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import android.os.Handler
 
 class MainActivity : AppCompatActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
+
+        val fragmentManager = supportFragmentManager
+
+        // Create and add the StartingScreenFragment initially
+        val startingScreenFragment = starting_screen()
+        val initialTransaction = fragmentManager.beginTransaction()
+        initialTransaction.add(R.id.fragment_container, startingScreenFragment)
+        initialTransaction.commit()
+
+        // Create a Handler to delay the fragment replacement
+        val handler = Handler()
+        handler.postDelayed({
+            // Create the RegisterFragment
+            val registerFragment = register_fragment()
+
+            // Begin a new FragmentTransaction to replace the StartingScreenFragment
+            val transaction = fragmentManager.beginTransaction()
+            transaction.setCustomAnimations(
+                R.anim.fade_in,  // Animation for the entering RegisterFragment
+                R.anim.fade_out // Animation for the exiting StartingScreenFragment
+            )
+            transaction.replace(R.id.fragment_container, registerFragment)
+            transaction.addToBackStack(null) // Optional: Add to back stack
+            transaction.commit()
+        }, 3000) // Delay in milliseconds (3000ms = 3 seconds)
     }
 }
