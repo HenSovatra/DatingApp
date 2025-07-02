@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:context=".fragments.chat_fragment">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/friendsRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingHorizontal="20sp"
+        android:paddingTop="20sp"
+        tools:listitem="@layout/item_chat_conversation"
+        android:clipToPadding="false"
+        android:paddingBottom="80dp" />
+    <ProgressBar
+    android:id="@+id/loadingProgressBar"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center"
+    android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/statusTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="50dp"
+        android:text="You're currently dont have any chat"
+        android:textColor="@android:color/darker_gray"
+        android:textSize="18sp"
+        android:gravity="center"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/btnFindPartner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Find Partner"
+        android:textColor="@color/white"
+        android:background="@drawable/button_solid_rounded_pink"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:fontFamily="@font/urbanist"
+        android:textStyle="bold"
+        android:textSize="18sp"
+        android:drawablePadding="8dp"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="32dp"
+        android:visibility="gone" />
+
+</FrameLayout>

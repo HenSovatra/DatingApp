@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">192.168.100.9</domain>
+        <domain includeSubdomains="true">172.20.10.4</domain>
+        <domain includeSubdomains="true">192.168.88.175</domain>
+        <domain includeSubdomains="true">192.168.0.90</domain>
+        <domain includeSubdomains="true">192.168.137.216</domain>
+
+        <domain includeSubdomains="true">https://genyurosama.pythonanywhere.com/</domain>
+    </domain-config>
+</network-security-config>

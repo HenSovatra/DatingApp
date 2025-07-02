@@ -1,12 +1,16 @@
-package com.example.datingapp
+package com.example.datingapp.fragments
 
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.fragment.app.Fragment
+import com.example.datingapp.R
 import com.example.datingapp.databinding.FragmentStartingScreenBinding
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class starting_screen : Fragment() {
 
@@ -24,17 +28,16 @@ class starting_screen : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Delay and navigate
         CoroutineScope(Dispatchers.Main).launch {
-            delay(3000) // Wait for 3 seconds
+            delay(3000)
             navigateToNextFragment()
         }
     }
 
     private fun navigateToNextFragment() {
-        val nextFragment = register_fragment() // Replace with your actual next fragment
+        val nextFragment = authentication()
         parentFragmentManager.beginTransaction()
-            .replace(R.id.register_fragment, nextFragment)
+            .replace(R.id.authentication_fragment, nextFragment)
             .addToBackStack(null) // Optional
             .commit()
     }

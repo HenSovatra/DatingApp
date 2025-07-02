@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/white" tools:context=".fragments.notification_fragment">
+
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/segmentedButtonGroupCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginTop="24dp"
+        app:cardCornerRadius="25dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="@color/white">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:orientation="horizontal"
+            android:background="@drawable/segmented_button_background"
+            android:padding="2dp">
+
+            <TextView
+                android:id="@+id/btnRequestDates"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Request Dates"
+                android:gravity="center"
+                android:textColor="@color/pink_accent"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:background="@drawable/segmented_button_selected_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:transitionName="segmented_tab_transition" />
+
+            <TextView
+                android:id="@+id/btnInteractions"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Interaction" android:gravity="center"
+                android:textColor="#9D9D9D"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:focusable="true"
+                android:transitionName="segmented_tab_transition" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="16dp">
+
+        <!-- RecyclerView for Received Date Requests -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerViewReceivedDateRequests"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingHorizontal="8dp"
+            android:clipToPadding="false"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+            tools:listitem="@layout/item_date_request"
+            android:visibility="visible" /> <!-- Initially visible -->
+
+        <!-- RecyclerView for User Interactions (Likes) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerViewUserInteractions"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingHorizontal="8dp"
+            android:clipToPadding="false"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+            tools:listitem="@layout/item_user_interaction"
+        android:visibility="gone" />
+
+        <!-- Shared Empty State TextView -->
+        <TextView
+            android:id="@+id/emptyStateTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No notifications yet."
+        android:layout_gravity="center"
+        android:visibility="gone"
+        android:layout_marginTop="-50dp"
+        style="@style/TextAppearance.AppCompat.Medium" />
+
+        <!-- Shared ProgressBar -->
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+</LinearLayout>
