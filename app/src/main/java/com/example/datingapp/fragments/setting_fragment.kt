@@ -14,6 +14,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar // Import ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -54,6 +55,7 @@ class setting_fragment : Fragment() {
     private lateinit var loadingProgressBar: ProgressBar
     private lateinit var loadingTextView: TextView
     private lateinit var contentLayout: View
+    private lateinit var likeDetail : ConstraintLayout
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -70,14 +72,11 @@ class setting_fragment : Fragment() {
         profileImage = view.findViewById(R.id.imageViewProfile)
         editIcon = view.findViewById(R.id.editIcon)
 
-        valueLikesReceived = view.findViewById(R.id.valueLikesReceived)
-        valueMatches = view.findViewById(R.id.valueMatches)
-
         // NEW: Initialize loading UI elements and content layout
         loadingProgressBar = view.findViewById(R.id.loadingProgressBar)
         loadingTextView = view.findViewById(R.id.loadingTextView)
         contentLayout = view.findViewById(R.id.contentLayout) // Initialize contentLayout
-
+        likeDetail = view.findViewById(R.id.likeDetail)
         return view
     }
 
@@ -91,7 +90,6 @@ class setting_fragment : Fragment() {
             Log.d(TAG, "Retrieved userId from SharedPreferences: $userId")
             setLoadingState(true, getString(R.string.loading_profile_data)) // Show loading initially
             fetchUserProfile(userId)
-            fetchUserEngagementStats()
         } else {
             Log.e(TAG, "User ID not found in SharedPreferences. Cannot fetch profile.")
             Toast.makeText(requireContext(), "User not logged in or ID missing.", Toast.LENGTH_LONG).show()
@@ -100,7 +98,16 @@ class setting_fragment : Fragment() {
             startActivity(intent)
             requireActivity().finish()
         }
-
+        likeDetail.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .setCustomAnimations(
+                    R.anim.slide_in_right,
+                    R.anim.slide_out_left
+                )
+                .replace(R.id.fragment_container, UserInteractionsContainerFragment())
+                .addToBackStack(null) // Allows the user to press the back button to return here
+                .commit()
+        }
         val authToken = authPrefs.getString("auth_token", null)
         val email = authPrefs.getString("user_email", null)
         if (authToken != null) {
@@ -161,7 +168,6 @@ class setting_fragment : Fragment() {
                             val kindOfDateName = profile.kindOfDateLookingFor?.name
                             val imageUrl = profile.profileImageUrl
 
-                            // --- Update UI ---
                             val displayFullName = "${firstName.orEmpty()} ${lastName.orEmpty()}".trim()
                             txtUsername.text = if (displayFullName.isNotEmpty()) displayFullName else user?.username ?: "Unknown User"
 
@@ -240,72 +246,6 @@ class setting_fragment : Fragment() {
             } finally {
                 withContext(Dispatchers.Main) {
                     setLoadingState(false)
-                }
-            }
-        }
-    }
-
-    private fun fetchUserEngagementStats() {
-        val sessionManager = SessionManager(requireContext())
-        val authToken = sessionManager.getAuthToken()
-
-        if (authToken.isNullOrEmpty()) {
-            Log.w(TAG, "No auth token for fetching engagement stats.")
-            return
-        }
-
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val likesResponse = RetrofitClient.apiService.getLikesReceivedCount("Token $authToken")
-                withContext(Dispatchers.Main) {
-                    if (likesResponse.isSuccessful && likesResponse.body() != null) {
-                        val count = likesResponse.body()!!.count
-                        valueLikesReceived.text = count.toString()
-                        Log.d(TAG, "Likes received count: $count")
-                    } else {
-                        val errorBody = likesResponse.errorBody()?.string()
-                        Log.e(TAG, "Failed to fetch likes count: ${likesResponse.code()} - $errorBody")
-                        valueLikesReceived.text = "N/A"
-                    }
-                }
-
-                val matchesResponse = RetrofitClient.apiService.getMatchesCount("Token $authToken")
-                withContext(Dispatchers.Main) {
-                    if (matchesResponse.isSuccessful && matchesResponse.body() != null) {
-                        val count = matchesResponse.body()!!.count
-                        valueMatches.text = count.toString()
-                        Log.d(TAG, "Matches count: $count")
-                    } else {
-                        val errorBody = matchesResponse.errorBody()?.string()
-                        Log.e(TAG, "Failed to fetch matches count: ${matchesResponse.code()} - $errorBody")
-                        valueMatches.text = "N/A"
-                    }
-                }
-
-            } catch (e: IOException) {
-                withContext(Dispatchers.Main) {
-                    val errorMessage = "Network error fetching engagement stats: ${e.message}"
-                    Log.e(TAG, errorMessage, e)
-                    Toast.makeText(requireContext(), "Network error fetching stats.", Toast.LENGTH_SHORT).show()
-                    valueLikesReceived.text = "Error"
-                    valueMatches.text = "Error"
-                }
-            } catch (e: HttpException) {
-                withContext(Dispatchers.Main) {
-                    val errorMessage = "Server error fetching engagement stats: ${e.code()}"
-                    Log.e(TAG, errorMessage, e)
-                    Toast.makeText(requireContext(), "Server error fetching stats.", Toast.LENGTH_SHORT).show()
-                    valueLikesReceived.text = "Error"
-                    valueMatches.text = "Error"
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    val errorMessage = "An unexpected error occurred fetching engagement stats: ${e.message}"
-                    Log.e(TAG, errorMessage, e)
-                    Toast.makeText(requireContext(), "Error fetching stats.", Toast.LENGTH_SHORT).show()
-                    valueLikesReceived.text = "Error"
-                    valueMatches.text = "Error"
                 }
             }
         }

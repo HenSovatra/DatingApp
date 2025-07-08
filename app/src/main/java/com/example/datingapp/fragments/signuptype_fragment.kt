@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.datingapp.models.KindOfDate
@@ -22,6 +23,7 @@ class signuptype_fragment : Fragment() {
     private lateinit var nextButton: Button
     private lateinit var interestsRecyclerView: RecyclerView
     private lateinit var interestAdapter: InterestAdapter
+    private lateinit var skipButton: TextView
     val interestList = mutableListOf(
         KindOfDate("1", "Long-Term", R.drawable.long_term_icon),
         KindOfDate("2", "Short-Term", R.drawable.short_term_icon),
@@ -37,6 +39,7 @@ class signuptype_fragment : Fragment() {
         backBtn = view.findViewById(R.id.backBtn)
         nextButton = view.findViewById(R.id.next_button)
         interestsRecyclerView = view.findViewById(R.id.interestsRecyclerView)
+        skipButton = view.findViewById(R.id.skip)
 
         interestsRecyclerView.layoutManager = LinearLayoutManager(context)
             interestAdapter = InterestAdapter(interestList) { selectedInterest ->
@@ -66,7 +69,22 @@ class signuptype_fragment : Fragment() {
                 .addToBackStack(null)
                 .commit()
         }
-
+        skipButton.setOnClickListener {
+            val nextFragment = signupimage_fragment()
+            val sharedPrefs = requireContext().getSharedPreferences(RegisterConstants.PREFS_NAME,Context.MODE_PRIVATE)
+            with(sharedPrefs.edit()) {
+                putString(RegisterConstants.KEY_KIND_OF_DATE_LOOKING_FOR, "5")
+                apply()
+            }
+            parentFragmentManager.beginTransaction()
+                .setCustomAnimations(
+                    R.anim.slide_in_right,
+                    R.anim.slide_out_left
+                )
+                .replace(R.id.fragment_container, nextFragment)
+                .addToBackStack(null)
+                .commit()
+        }
 
         nextButton.setOnClickListener {
             val selectedInterest = interestAdapter.getSelectedInterest()

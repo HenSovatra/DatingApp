@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/authentication_fragment"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/authentication_fragment_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    tools:context=".fragments.AuthenticationFragment"> <!-- Add tools:context for preview -->
 
-
+    <!-- Your existing content goes here -->
     <LinearLayout
+        android:id="@+id/main_content_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
@@ -112,6 +114,30 @@
         </androidx.cardview.widget.CardView>
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/loading_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#80000000"
+    android:visibility="gone"
+    android:clickable="true"
+    android:focusable="true">
 
+    <ProgressBar
+        android:id="@+id/loading_spinner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:indeterminateTint="@android:color/white" />
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Loading..."
+        android:textColor="@android:color/white"
+        android:layout_marginTop="8dp"
+        android:textSize="16sp"/>
 </LinearLayout>
+
+    </FrameLayout>

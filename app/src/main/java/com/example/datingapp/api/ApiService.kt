@@ -9,6 +9,8 @@ import com.example.datingapp.models.DateRequestResponse
 import com.example.datingapp.models.EngagementCount
 import com.example.datingapp.models.FcmTokenRequest
 import com.example.datingapp.models.FcmTokenResponse
+import com.example.datingapp.models.InteractionActionRequest
+import com.example.datingapp.models.InteractionActionResponse
 import com.example.datingapp.models.InteractionRequest
 import com.example.datingapp.models.InteractionResponse
 import com.example.datingapp.models.UserLoginRequest
@@ -18,11 +20,13 @@ import com.example.datingapp.models.KindOfDateResponse
 import com.example.datingapp.models.Message
 import com.example.datingapp.models.SendMessageRequest
 import com.example.datingapp.models.SuggestedUsersResponse
+import com.example.datingapp.models.UserInteractionItem
 import com.example.datingapp.models.UserInteractionNotification
 import com.example.datingapp.models.UserProfile
 import com.example.datingapp.models.UserResponse
 import com.example.datingapp.models.UserResponseSetting
 import com.example.datingapp.models.base64Data
+import okhttp3.MultipartBody
 import okhttp3.ResponseBody
 
 import retrofit2.Response
@@ -31,8 +35,10 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.HTTP
 import retrofit2.http.Header
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -112,9 +118,30 @@ interface ApiService {
 
     @GET("date-requests/sent/")
     suspend fun getSentDateRequests(@Header("Authorization") authToken: String): Response<List<DateRequestResponse>>
-    @GET("likes/received/count/")
-    suspend fun getLikesReceivedCount(@Header("Authorization") authToken: String): Response<EngagementCount>
 
-    @GET("matches/count/")
-    suspend fun getMatchesCount(@Header("Authorization") authToken: String): Response<EngagementCount>
+    @Multipart
+    @PATCH("users/{id}/profile/update_image/")
+    suspend fun uploadProfileImage(
+        @Path("id") userId: Int,
+        @Header("Authorization") authToken: String,
+        @Part profileImage: MultipartBody.Part
+    ): Response<UserResponseSetting>
+
+    @GET("check-email/")
+    suspend fun checkEmailExists(@Query("email") email: String): Response<Void>
+
+    @GET("interactions/mutual/")
+    suspend fun getMutualMatches(@Header("Authorization") authToken: String): Response<List<UserInteractionItem>>
+
+    @GET("interactions/outgoing/")
+    suspend fun getOutgoingLikes(@Header("Authorization") authToken: String): Response<List<UserInteractionItem>>
+
+    @GET("interactions/incoming/")
+    suspend fun getIncomingLikes(@Header("Authorization") authToken: String): Response<List<UserInteractionItem>>
+
+    @POST("interactions/action/")
+    suspend fun performUserInteractionAction(
+        @Header("Authorization") authToken: String,
+        @Body request: InteractionActionRequest
+    ): Response<InteractionActionResponse>
 }

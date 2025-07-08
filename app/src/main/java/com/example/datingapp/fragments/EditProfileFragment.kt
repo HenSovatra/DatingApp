@@ -1,7 +1,12 @@
 package com.example.datingapp.fragments
 
+import android.app.Activity
+import android.app.AlertDialog
 import android.app.DatePickerDialog
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -10,21 +15,29 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.Spinner
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.example.datingapp.R
 import com.example.datingapp.api.RetrofitClient
-import com.example.datingapp.models.UserProfile
-import com.example.datingapp.models.UserResponseSetting
-import com.yourpackage.yourapp.auth.SessionManager
+import com.example.datingapp.models.UserProfile // Used for sending profile updates
+import com.example.datingapp.models.UserResponseSetting // Used for receiving profile data
+import com.yourpackage.yourapp.auth.SessionManager // *** IMPORTANT: Ensure this path is correct for your SessionManager ***
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import retrofit2.HttpException
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -46,8 +59,34 @@ class EditProfileFragment : Fragment() {
     private lateinit var etBio: EditText
     private lateinit var etLocation: EditText
 
+    private lateinit var profileImageView: ImageView
     private lateinit var sessionManager: SessionManager
     private var userId: Int = -1
+
+    private var selectedImageUri: Uri? = null
+
+    private lateinit var pickImageLauncher: ActivityResultLauncher<Intent>
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Initialize the ActivityResultLauncher
+        pickImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val imageUri: Uri? = result.data?.data
+                imageUri?.let {
+                    selectedImageUri = it
+                    Glide.with(this)
+                        .load(it)
+                        .placeholder(R.drawable.defaultpfp)
+                        .error(R.drawable.defaultpfp)
+                        .into(editProfileImage)
+                } ?: Toast.makeText(requireContext(), "Failed to get image URI.", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), "Image selection cancelled.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -89,7 +128,7 @@ class EditProfileFragment : Fragment() {
         }
 
         btnSave.setOnClickListener {
-            saveUserProfile()
+            showSaveConfirmationDialog()
         }
 
         etDateOfBirth.setOnClickListener {
@@ -97,7 +136,7 @@ class EditProfileFragment : Fragment() {
         }
 
         btnChangeProfileImage.setOnClickListener {
-            Toast.makeText(requireContext(), "Image change coming soon!", Toast.LENGTH_SHORT).show()
+            openImagePicker()
         }
     }
 
@@ -121,10 +160,8 @@ class EditProfileFragment : Fragment() {
                 val response = RetrofitClient.apiService.getUserProfile(userId, "Token $authToken")
                 withContext(Dispatchers.Main) {
                     if (response.isSuccessful && response.body() != null) {
-                        val userProfile = response.body()!!
-                        Log.d("userprofile",userProfile.toString())
-                        populateFields(userProfile)
-                        Log.d(TAG, "Profile loaded successfully for editing.")
+                        val userResponseSetting = response.body()!!
+                        populateFields(userResponseSetting)
                     } else {
                         val errorBody = response.errorBody()?.string()
                         Log.e(
@@ -133,7 +170,7 @@ class EditProfileFragment : Fragment() {
                         )
                         Toast.makeText(
                             requireContext(),
-                            "Failed to load profile data.",
+                            "Failed to load profile data: ${errorBody ?: "Unknown error"}",
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -169,28 +206,43 @@ class EditProfileFragment : Fragment() {
         }
     }
 
-    private fun populateFields(profile: UserResponseSetting) {
-        etFirstName.setText(profile.profileData?.firstName)
-        etLastName.setText(profile.profileData?.lastName)
-        etDateOfBirth.setText(profile.profileData?.dateOfBirth)
+    private fun populateFields(userResponse: UserResponseSetting) {
+        val profile = userResponse.profileData
+        profile?.let {
+            etFirstName.setText(it.firstName)
+            etLastName.setText(it.lastName)
+            etDateOfBirth.setText(it.dateOfBirth)
 
-        val genderOptions = resources.getStringArray(R.array.gender_options)
-        val currentGender = profile.profileData?.gender?.capitalize(Locale.ROOT)
-        val selectedIndex = genderOptions.indexOfFirst { it == currentGender }
-        if (selectedIndex != -1) {
-            spinnerGender.setSelection(selectedIndex)
+            val genderOptions = resources.getStringArray(R.array.gender_options)
+            val currentGender = it.gender?.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.ROOT) else char.toString() }
+            val selectedIndex = genderOptions.indexOfFirst { option -> option == currentGender }
+            if (selectedIndex != -1) {
+                spinnerGender.setSelection(selectedIndex)
+            }
+
+            etPreferredDateType.setText(it.kindOfDateLookingFor?.name)
+            etBio.setText(it.bio)
+            etLocation.setText(it.location)
+
+            it.profileImageUrl?.let { imageUrl ->
+                if (imageUrl.isNotEmpty()) {
+                    Glide.with(this)
+                        .load(imageUrl)
+                        .placeholder(R.drawable.defaultpfp)
+                        .error(R.drawable.defaultpfp)
+                        .into(editProfileImage)
+                } else {
+                    editProfileImage.setImageResource(R.drawable.defaultpfp)
+                }
+            } ?: run {
+                editProfileImage.setImageResource(R.drawable.defaultpfp)
+            }
+        } ?: run {
+            Log.e(TAG, "Profile data is null in UserResponseSetting.")
+            Toast.makeText(requireContext(), "Profile data not found in response.", Toast.LENGTH_SHORT).show()
         }
-
-        etPreferredDateType.setText(profile.profileData?.kindOfDateLookingFor?.name)
-        etBio.setText(profile.profileData?.bio)
-        etLocation.setText(profile.profileData?.location)
-
-        Glide.with(this)
-            .load(profile.profileData?.profileImageUrl)
-            .placeholder(R.drawable.defaultpfp)
-            .error(R.drawable.defaultpfp)
-            .into(editProfileImage)
     }
+
 
     private fun showDatePickerDialog() {
         val calendar = Calendar.getInstance()
@@ -224,6 +276,21 @@ class EditProfileFragment : Fragment() {
         datePickerDialog.show()
     }
 
+    private fun showSaveConfirmationDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Confirm Save")
+            .setMessage("Are you sure you want to save these changes to your profile?")
+            .setPositiveButton("Save") { dialog, _ ->
+                dialog.dismiss()
+                saveUserProfile()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+
     private fun saveUserProfile() {
         val firstName = etFirstName.text.toString().trim()
         val lastName = etLastName.text.toString().trim()
@@ -244,22 +311,35 @@ class EditProfileFragment : Fragment() {
             return
         }
 
-        val updatedProfile = UserProfile(
-            id = -1,
-            username = null,
-            email = null,
-            firstName = firstName,
-            lastName = lastName,
-            dateOfBirth = dateOfBirth,
-            gender = gender,
-            preferredDateType = preferredDateType,
-            bio = bio,
-            location = location,
-            profileImageUrl = null,
-            kindOfDateLookingFor = null
-        )
-
         lifecycleScope.launch(Dispatchers.IO) {
+            selectedImageUri?.let { uri ->
+                try {
+                    uploadImageToServer(uri)
+                    selectedImageUri = null
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(requireContext(), "Failed to upload image. Profile not saved.", Toast.LENGTH_LONG).show()
+                    }
+                    Log.e(TAG, "Image upload failed before profile save: ${e.message}", e)
+                    return@launch
+                }
+            }
+
+            val updatedProfile = UserProfile(
+                id = userId,
+                username = null,
+                email = null,
+                firstName = firstName,
+                lastName = lastName,
+                dateOfBirth = dateOfBirth,
+                gender = gender,
+                kindOfDateLookingFor = null,
+                bio = bio,
+                location = location,
+                profileImageUrl = null,
+                preferredDateType = preferredDateType
+            )
+
             try {
                 val response = RetrofitClient.apiService.updateUserProfile(userId, "Token $authToken", updatedProfile)
                 withContext(Dispatchers.Main) {
@@ -275,7 +355,7 @@ class EditProfileFragment : Fragment() {
                         Log.e(TAG, "Failed to save profile: ${response.code()} - $errorBody")
                         Toast.makeText(
                             requireContext(),
-                            "Failed to save profile: $errorBody",
+                            "Failed to save profile: ${errorBody ?: "Unknown error"}",
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -295,7 +375,7 @@ class EditProfileFragment : Fragment() {
                     Log.e(TAG, errorMessage, e)
                     Toast.makeText(
                         requireContext(),
-                        "Server error saving profile.",
+                        "Server error saving profile: ${e.message()}",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -307,5 +387,87 @@ class EditProfileFragment : Fragment() {
                 }
             }
         }
+    }
+    private fun openImagePicker() {
+        val intent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                type = "image/*"
+            }
+        } else {
+            Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "image/*"
+            }
+        }
+        pickImageLauncher.launch(intent)
+    }
+
+    private suspend fun uploadImageToServer(imageUri: Uri) {
+        val authToken = sessionManager.getAuthToken()
+        if (authToken.isNullOrEmpty()) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(requireContext(), "Authentication required to upload image.", Toast.LENGTH_SHORT).show()
+            }
+            throw IllegalStateException("Authentication token is missing.")
+        }
+
+        var imageFile: File? = null
+        try {
+            val inputStream = requireContext().contentResolver.openInputStream(imageUri)
+            val originalFileName = requireContext().contentResolver.getFileName(imageUri) ?: "profile_image.jpg"
+            val tempFile = File(requireContext().cacheDir, originalFileName)
+            inputStream?.use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            imageFile = tempFile
+
+            if (imageFile != null && imageFile.exists()) {
+                val requestFile = imageFile.asRequestBody("image/*".toMediaTypeOrNull())
+                val body = MultipartBody.Part.createFormData("profile_image", imageFile.name, requestFile)
+
+                val response = RetrofitClient.apiService.uploadProfileImage(userId, "Token $authToken", body)
+
+                withContext(Dispatchers.Main) {
+                    if (response.isSuccessful && response.body() != null) {
+                        val updatedProfileResponse = response.body()!!
+                        updatedProfileResponse.profileData?.profileImageUrl?.let { newImageUrl ->
+                            Glide.with(this@EditProfileFragment)
+                                .load(newImageUrl)
+                                .placeholder(R.drawable.defaultpfp)
+                                .error(R.drawable.defaultpfp)
+                                .into(editProfileImage)
+                        }
+                        Toast.makeText(requireContext(), "Profile picture uploaded!", Toast.LENGTH_SHORT).show()
+                        Log.d(TAG, "Profile image uploaded successfully.")
+                    } else {
+                        val errorBody = response.errorBody()?.string()
+                        val errorMessage = "Failed to upload image: ${response.code()} - ${errorBody}"
+                        Log.e(TAG, errorMessage)
+                        throw IOException(errorMessage)
+                    }
+                }
+            } else {
+                val errorMessage = "Could not create image file from URI."
+                Log.e(TAG, errorMessage)
+                throw IOException(errorMessage)
+            }
+        } finally {
+            imageFile?.delete()
+            Log.d(TAG, "Temporary image file cleaned up.")
+        }
+    }
+
+    private fun android.content.ContentResolver.getFileName(uri: Uri): String? {
+        var name: String? = null
+        query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val columnIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                if (columnIndex != -1) {
+                    name = cursor.getString(columnIndex)
+                }
+            }
+        }
+        return name
     }
 }

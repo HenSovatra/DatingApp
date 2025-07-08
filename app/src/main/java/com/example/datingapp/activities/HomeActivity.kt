@@ -10,6 +10,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -24,16 +25,25 @@ import com.example.datingapp.fragments.home_fragment
 import com.example.datingapp.fragments.notification_fragment
 import com.example.datingapp.fragments.setting_fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.yourpackage.yourapp.auth.SessionManager
+import com.yourpackage.yourapp.auth.SessionManager // Ensure this import is correct
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class HomeActivity : AppCompatActivity() {
+// Define the interface for profile updates.
+// This interface allows EditProfileFragment to notify HomeActivity
+// when a profile update has successfully occurred.
+interface OnProfileUpdateListener {
+    fun onProfileUpdated()
+}
+
+class HomeActivity : AppCompatActivity(), OnProfileUpdateListener { // HomeActivity implements the interface
     private lateinit var bottomNavigationView: BottomNavigationView
     private lateinit var profileImage : CircleImageView
+
+    // Launcher for requesting POST_NOTIFICATIONS permission
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -47,9 +57,15 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_home)
+        setContentView(R.layout.activity_home) // Set the main layout for the activity
+
+        // Initialize RetrofitClient (ensure it's done before any API calls)
         RetrofitClient.init(this)
+
+        // Request notification permission if needed for Android 13+
         requestNotificationPermission()
+
+        // Initialize BottomNavigationView with error handling
         try {
             bottomNavigationView = findViewById(R.id.bottom_navigation_view)
         } catch (e: Exception) {
@@ -57,16 +73,22 @@ class HomeActivity : AppCompatActivity() {
             Toast.makeText(this, "Error: BottomNavigationView not found with the specified ID!", Toast.LENGTH_LONG).show()
             return
         }
+
+        // Initialize profile image view from the header layout
+        // Assuming 'mainHeader' is an included layout or the ConstraintLayout itself
         val mainHeader = findViewById<View>(R.id.mainHeader)
-        //searchTab = mainHeader.findViewById(R.id.searchTab)
         profileImage = mainHeader.findViewById(R.id.imageViewProfile)
-        //notificationIcon = mainHeader.findViewById(R.id.notificationIcon)
+
+        // Load the initial fragment (home_fragment) if it's the first time creating the activity
         if (savedInstanceState == null) {
-            loadFragment(home_fragment()) // Initial fragment load
-            handleIntent(intent)
+            loadFragment(home_fragment())
+            handleIntent(intent) // Handle any incoming intents (e.g., from notifications)
         }
 
+        // Fetch the user's profile data and image when the activity starts
         fetchUserProfile()
+
+        // Set up listener for BottomNavigationView item selections
         bottomNavigationView.setOnItemSelectedListener { item ->
             val selectedFragment: Fragment = when (item.itemId) {
                 R.id.navigation_home -> home_fragment()
@@ -74,26 +96,30 @@ class HomeActivity : AppCompatActivity() {
                 R.id.navigation_chat -> chat_fragment()
                 R.id.navigation_notification -> notification_fragment()
                 R.id.navigation_setting -> setting_fragment()
-                else -> return@setOnItemSelectedListener false
+                else -> return@setOnItemSelectedListener false // Return false if no fragment matches
             }
 
-            loadFragment(selectedFragment)
-            true
+            loadFragment(selectedFragment) // Load the selected fragment
+            true // Indicate that the item selection has been handled
         }
     }
 
+    /**
+     * Handles incoming intents, particularly for notifications.
+     * @param intent The intent that started this activity.
+     */
     private fun handleIntent(intent: Intent) {
         if (intent.action == "com.example.datingapp.VIEW_NOTIFICATION") {
             val notificationType = intent.getStringExtra("notification_type")
-            if(notificationType=="date_request"){
-                loadFragment(notification_fragment())
-            }else if(notificationType=="chat"){
-                loadFragment(notification_fragment())
+            if(notificationType=="date_request" || notificationType=="chat"){
+                loadFragment(notification_fragment()) // Load notification fragment for specific types
             }
-        } else {
         }
     }
 
+    /**
+     * Requests POST_NOTIFICATIONS permission for Android 13 (API 33) and above.
+     */
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             when {
@@ -108,7 +134,6 @@ class HomeActivity : AppCompatActivity() {
                     showNotificationPermissionRationale()
                 }
                 else -> {
-                    // Request the permission directly
                     Log.d("Permission", "Requesting POST_NOTIFICATIONS permission")
                     requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
@@ -118,98 +143,117 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Returns the currently active fragment in the fragment_container.
+     * @return The current Fragment or null if none is attached.
+     */
+    fun getCurrentFragment(): Fragment? {
+        return supportFragmentManager.findFragmentById(R.id.fragment_container)
+    }
+
+    /**
+     * Displays a Toast message explaining why notification permission is needed.
+     */
     private fun showNotificationPermissionRationale() {
         Toast.makeText(this, "Please enable notifications in app settings to receive date requests.", Toast.LENGTH_LONG).show()
     }
 
+    /**
+     * Loads a specified fragment into the fragment_container.
+     * Prevents reloading the same fragment if it's already active.
+     * @param fragment The Fragment to load.
+     */
     private fun loadFragment(fragment: Fragment) {
         val currentFragment = supportFragmentManager.findFragmentById(R.id.fragment_container)
 
+        // Check if the fragment to be loaded is already the current one
         if (currentFragment != null && currentFragment::class == fragment::class) {
             val fragmentName = fragment::class.simpleName ?: "Unknown Fragment"
             Log.d("Navigation", "Already on $fragmentName. No navigation needed.")
             return
         }
 
+        // Perform the fragment transaction
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, fragment)
-            .commitNow()
+            .commitNow() // Use commitNow() for immediate execution
 
         val fragmentName = fragment::class.simpleName ?: "Unknown Fragment"
         Log.i("Navigation", "Navigated to: $fragmentName")
-
-        doSomethingBasedOnCurrentFragment()
     }
 
+    /**
+     * Handles the Up button (back arrow) in the action bar.
+     * Currently just shows a Toast.
+     */
     override fun onSupportNavigateUp(): Boolean {
         Toast.makeText(this, "Search icon clicked (Navigation Icon)", Toast.LENGTH_SHORT).show()
-        // If you had a DrawerLayout, you'd open it here
         return true
     }
-    fun getCurrentDisplayedFragment(): Fragment? {
-        return supportFragmentManager.findFragmentById(R.id.fragment_container)
-    }
-    fun doSomethingBasedOnCurrentFragment() {
-//        val currentFragment = getCurrentDisplayedFragment()
-//        when (currentFragment) {
-//            is home_fragment -> {
-//                searchTab.visibility = View.VISIBLE
-//                notificationIcon.visibility = View.VISIBLE
-//            }
-//            is chat_fragment -> {
-//
-//                notificationIcon.visibility = View.GONE
-//                searchTab.visibility = View.VISIBLE
-//            }
-//            else -> {
-//                searchTab.visibility = View.GONE
-//                notificationIcon.visibility = View.GONE
-//            }
-//        }
-    }
-    // For handling overflow menu items if you had any in top_app_bar_menu
+
+    /**
+     * Handles options menu item selections.
+     * @param item The selected MenuItem.
+     * @return True if the event was handled, false otherwise.
+     */
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            // Handle other generic menu items if they exist
+            // Add custom menu item handling here if needed
             else -> super.onOptionsItemSelected(item)
         }
     }
+
+    /**
+     * Fetches the user's profile data from the backend and updates the profile image.
+     */
     private fun fetchUserProfile() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val sessionManager = SessionManager(this@HomeActivity)
-                val userId = sessionManager.getUserId();
+                val userId = sessionManager.getUserId()
                 val authToken = sessionManager.getAuthToken()
+
+                // Make API call to get user profile
                 val response = RetrofitClient.userService.getUserById(userId, authToken)
-                withContext(Dispatchers.Main) { // Switch back to Main thread for UI updates
+
+                withContext(Dispatchers.Main) {
                     if (response.isSuccessful && response.body() != null) {
                         val user = response.body()
-                        val imageUrl = user?.profile?.profileImageUrl;
+                        val imageUrl = user?.profile?.profileImageUrl // Access profileImageUrl from nested profile
                         if (imageUrl.isNullOrEmpty()) {
-                            profileImage.setImageResource(R.drawable.default_profile);
+                            profileImage.setImageResource(R.drawable.defaultpfp) // Set default if URL is empty
                         } else {
+                            // Load image using Glide
                             Glide.with(profileImage.context)
                                 .load(imageUrl)
-                                .placeholder(R.drawable.defaultpfp)
-                                .error(R.drawable.defaultpfp)
-                                .into(profileImage);
+                                .placeholder(R.drawable.defaultpfp) // Placeholder while loading
+                                .error(R.drawable.defaultpfp) // Error image if loading fails
+                                .into(profileImage) // Set image to imageViewProfile
                         }
-
                     } else {
                         val errorBody = response.errorBody()?.string()
                         val errorMessage = "Failed to fetch user profile: ${response.code()}" +
                                 (errorBody?.let { " - $it" } ?: "")
-                        Log.e("YourActivityName", errorMessage) // Change tag
+                        Log.e("HomeActivity", errorMessage)
                         Toast.makeText(this@HomeActivity, errorMessage, Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     val errorMessage = "Error fetching user profile: ${e.message}"
-                    Log.e("YourActivityName", errorMessage, e) // Change tag
+                    Log.e("HomeActivity", errorMessage, e)
                     Toast.makeText(this@HomeActivity, "Network error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
+    }
+
+    /**
+     * Implementation of the OnProfileUpdateListener interface.
+     * This method is called by EditProfileFragment upon a successful profile update.
+     */
+    override fun onProfileUpdated() {
+        Log.d("HomeActivity", "Profile updated callback received. Refreshing profile image.")
+        fetchUserProfile() // Call fetchUserProfile to refresh the image
     }
 }

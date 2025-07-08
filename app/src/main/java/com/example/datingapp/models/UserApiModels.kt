@@ -279,3 +279,26 @@ data class ProfileSetting(
     @SerializedName("kind_of_date_looking_for")
     val kindOfDateLookingFor: KindOfDate?
 )
+data class ProfileInteractionResponse(
+    val age: Int?,
+    @SerializedName("profile_image_url") val profileImageUrl: String?,
+    @SerializedName("full_name") val fullName: String?
+)
+
+data class UserInteractionItem(
+    val id: Int,
+    val username: String,
+    val email: String,
+    val profile: ProfileInteractionResponse?,
+    @SerializedName("is_mutual_match") val isMutualMatch: Boolean?
+)
+
+data class InteractionActionResponse(
+    val message: String,
+    val matched: Boolean? = false
+)
+
+data class InteractionActionRequest(
+    @SerializedName("user_id") val userId: Int,
+    val action: String
+)

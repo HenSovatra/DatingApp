@@ -37,8 +37,8 @@ class starting_screen : Fragment() {
     private fun navigateToNextFragment() {
         val nextFragment = authentication()
         parentFragmentManager.beginTransaction()
-            .replace(R.id.authentication_fragment, nextFragment)
-            .addToBackStack(null) // Optional
+            .replace(R.id.authentication_fragment_root, nextFragment)
+            .addToBackStack(null)
             .commit()
     }
 

@@ -16,18 +16,19 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.datingapp.R
 import com.example.datingapp.adapters.FriendsAdapter
 import com.example.datingapp.api.RetrofitClient
 import com.example.datingapp.models.ConversationListItem
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.datingapp.services.MyFirebaseMessagingService
+import com.example.datingapp.interfaces.ChatSearchableDataProvider
 import com.yourpackage.yourapp.auth.SessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class chat_fragment : Fragment() {
+class chat_fragment : Fragment(), ChatSearchableDataProvider {
 
     private val TAG = "ChatListFragment"
 
@@ -40,6 +41,8 @@ class chat_fragment : Fragment() {
     private lateinit var statusTextView: TextView
 
     private lateinit var chatListUpdateReceiver: BroadcastReceiver
+
+    private var _conversationsForSearch: List<ConversationListItem> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,10 +66,11 @@ class chat_fragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_chat_fragment, container, false)
 
-        conversationsRecyclerView = view.findViewById(R.id.friendsRecyclerView)
-        btnFindPartner = view.findViewById(R.id.btnFindPartner)
-        loadingProgressBar = view.findViewById(R.id.loadingProgressBar)
-        statusTextView = view.findViewById(R.id.statusTextView)
+        // Explicit types added here:
+        conversationsRecyclerView = view.findViewById<RecyclerView>(R.id.friendsRecyclerView)
+        btnFindPartner = view.findViewById<TextView>(R.id.btnFindPartner)
+        loadingProgressBar = view.findViewById<ProgressBar>(R.id.loadingProgressBar)
+        statusTextView = view.findViewById<TextView>(R.id.statusTextView)
 
         return view
     }
@@ -152,7 +156,7 @@ class chat_fragment : Fragment() {
         }
     }
 
-    private fun fetchConversations() {
+    fun fetchConversations() {
         val sessionManager = SessionManager(requireContext())
         val authToken = sessionManager.getAuthToken()
 
@@ -179,6 +183,8 @@ class chat_fragment : Fragment() {
                         conversationList.clear()
                         conversationList.addAll(conversations)
                         conversationsAdapter.notifyDataSetChanged()
+
+                        _conversationsForSearch = conversations
 
                         if (conversations.isEmpty()) {
                             setUiState(UiState.EMPTY)
@@ -209,5 +215,9 @@ class chat_fragment : Fragment() {
                 }
             }
         }
+    }
+
+    override fun provideConversationsForSearch(): List<ConversationListItem> {
+        return _conversationsForSearch
     }
 }

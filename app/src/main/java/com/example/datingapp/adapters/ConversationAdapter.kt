@@ -13,13 +13,6 @@ class ConversationAdapter(
     private var conversations: List<Conversation>,
     private val listener: OnConversationClickListener
 ) : RecyclerView.Adapter<ConversationAdapter.ConversationViewHolder>() {
-
-    // Call this method if you update the data after initialization
-    fun setConversations(newConversations: List<Conversation>) {
-        this.conversations = newConversations
-        notifyDataSetChanged()
-    }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ConversationViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_conversation, parent, false)

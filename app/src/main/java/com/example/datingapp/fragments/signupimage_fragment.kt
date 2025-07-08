@@ -14,7 +14,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.FrameLayout // Import FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,13 +36,15 @@ import com.example.datingapp.api.RetrofitClient
 import com.example.datingapp.models.UserRegistrationRequest
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
-import kotlin.jvm.java
-import com.example.datingapp.models.ApiErrorResponse // Add this import
+import com.example.datingapp.models.ApiErrorResponse
 import com.example.datingapp.models.RegisterConstants
 import com.example.datingapp.models.base64Data
 import com.example.datingapp.utils.showAlertDialog
 import com.yourpackage.yourapp.auth.SessionManager
 import java.io.InputStream
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+
 
 class signupimage_fragment : Fragment() {
 
@@ -48,8 +52,11 @@ class signupimage_fragment : Fragment() {
     private lateinit var nextButton: Button
     private lateinit var imageSlotsRecyclerView: RecyclerView
     private lateinit var imageSlotAdapter: ImageSlotAdapter
+    private lateinit var loadingOverlay: FrameLayout
 
     private var currentSelectedSlotPosition: Int = -1
+    private var isProcessingClick = false
+
 
     private val pickImageLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -80,13 +87,13 @@ class signupimage_fragment : Fragment() {
         backBtn = view.findViewById(R.id.backBtn)
         nextButton = view.findViewById(R.id.next_button)
         imageSlotsRecyclerView = view.findViewById(R.id.imageSlotsRecyclerView)
+        loadingOverlay = view.findViewById(R.id.loadingOverlay) // NEW: Initialize the overlay
 
         val imageItems = mutableListOf<ImageItem>()
         for (i in 1..6) {
             imageItems.add(ImageItem(id = "slot_$i", imageUri = null, isAddButton = true))
         }
 
-        // Set up the RecyclerView with a GridLayoutManager (3 columns)
         imageSlotsRecyclerView.layoutManager = GridLayoutManager(context, 3)
         imageSlotAdapter = ImageSlotAdapter(
             imageItems,
@@ -110,7 +117,6 @@ class signupimage_fragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // Set click listener for the back button
         backBtn.setOnClickListener {
             val prevFragment = signuptype_fragment()
             parentFragmentManager.beginTransaction()
@@ -124,10 +130,19 @@ class signupimage_fragment : Fragment() {
         }
 
         nextButton.setOnClickListener {
+            if (isProcessingClick) {
+                Log.d(TAG, "Ignoring click because already processing.")
+                return@setOnClickListener
+            }
+
             val selectedUris = imageSlotAdapter.getAllImageUris()
             if (selectedUris.isEmpty()) {
                 Toast.makeText(requireContext(), "Please add at least one photo.", Toast.LENGTH_SHORT).show()
             } else {
+                isProcessingClick = true
+                nextButton.isEnabled = false
+                loadingOverlay.visibility = View.VISIBLE // NEW: Show the loading overlay
+
                 val sharedPrefs = requireContext().getSharedPreferences(RegisterConstants.PREFS_NAME, Context.MODE_PRIVATE);
                 val username = sharedPrefs.getString(RegisterConstants.KEY_USERNAME, "")
                 val password= sharedPrefs.getString(RegisterConstants.KEY_PASSWORD, "")
@@ -168,16 +183,6 @@ class signupimage_fragment : Fragment() {
                                         val bytes = input.readBytes()
                                         val base64String = Base64.encodeToString(bytes, Base64.NO_WRAP)
                                         val fileName = getFileNameFromUri(uri, requireContext())
-                                        // --- Print statements directly here, no extra functions or lists ---
-                                        Log.d("DirectPrint", "--- New Image Data ---")
-                                        Log.d("DirectPrint", "URI: $uri") // You can print the URI itself
-                                        Log.d("DirectPrint", "Generated Base64 Data (start): ${base64String.take(100)}...")
-                                        Log.d("DirectPrint", "Generated Base64 Data (end): ...${base64String.takeLast(100)}")
-                                        Log.d("DirectPrint", "Length of Base64 String: ${base64String.length} characters")
-                                        Log.d("DirectPrint", "filename: ${fileName}")
-                                        // No 'fileName' here, as getFileNameFromUri is not used
-                                        Log.d("DirectPrint", "----------------------")
-                                        // --- End of direct print statements ---
                                         data.add(base64Data(
                                             fileName = fileName,
                                             base64Data = base64String
@@ -189,6 +194,7 @@ class signupimage_fragment : Fragment() {
                                     Log.d("image save","successss")
                                 }
 
+                                // All good, navigate away
                                 val intent = Intent(requireContext(), HomeActivity::class.java)
                                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                                 startActivity(intent)
@@ -196,7 +202,7 @@ class signupimage_fragment : Fragment() {
 
                             } else {
                                 Log.e(TAG, "Registration successful but missing user data in response.")
-
+                                showAlertDialog("Registration Error", "Successful but missing user data in response. Please try again.")
                             }
 
                         } else {
@@ -229,14 +235,15 @@ class signupimage_fragment : Fragment() {
                     } catch (e: Exception) {
                         Log.e("API_NETWORK_ERROR", "Error during registration API call", e)
                         showAlertDialog("Network Error", "Could not connect to server. Please check your internet connection or try again later. Error: ${e.message}")
+                    } finally {
+                        // NEW: Hide the loading overlay
+                        loadingOverlay.visibility = View.GONE
+                        nextButton.isEnabled = true
+                        isProcessingClick = false
                     }
                 }
-
-
             }
-
         }
-
     }
 
     private fun checkAndRequestPermission() {
@@ -265,9 +272,10 @@ class signupimage_fragment : Fragment() {
 
     private fun openImagePicker() {
         val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        intent.type = "image/*" // Filter for image files
+        intent.type = "image/*"
         pickImageLauncher.launch(intent)
     }
+
     fun getFileNameFromUri(uri: Uri, context: Context): String {
         var result: String? = null
         if (uri.scheme == "content") {
@@ -288,7 +296,6 @@ class signupimage_fragment : Fragment() {
                 result = result?.substring(cut + 1)
             }
         }
-        return result ?: "image_${System.currentTimeMillis()}.jpg" // Default fallback
+        return result ?: "image_${System.currentTimeMillis()}.jpg"
     }
 }
-

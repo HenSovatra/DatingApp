@@ -5,7 +5,9 @@
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
     </style>
 
-    <style name="Theme.DatingApp" parent="Base.Theme.DatingApp" />
+    <style name="Theme.DatingApp" parent="Base.Theme.DatingApp" >
+        <item name="android:statusBarColor" tools:targetApi="l">@color/primary</item>
+    </style>
     <style name="BottomNavigationViewStyle" parent="Widget.MaterialComponents.BottomNavigationView.PrimarySurface">
         <item name="itemTextAppearanceInactive">@style/BottomNavigationTextInactive</item>
         <item name="itemTextAppearanceActive">@style/BottomNavigationTextActive</item>
@@ -23,4 +25,5 @@
     <style name="ShapeAppearanceOverlay.App.CornerSize50Percent" parent="">
         <item name="cornerSize">50%</item>
     </style>
+
 </resources>

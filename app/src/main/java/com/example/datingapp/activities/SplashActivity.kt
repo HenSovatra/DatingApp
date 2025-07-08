@@ -12,11 +12,11 @@ import com.example.datingapp.api.RetrofitClient
 
 class SplashActivity : AppCompatActivity() {
 
-    private val SPLASH_TIME_OUT: Long = 3000 // 3 seconds
+    private val SPLASH_TIME_OUT: Long = 3000
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_splash) // Create this layout
+        setContentView(R.layout.activity_splash)
         RetrofitClient.init(this)
         Handler(Looper.getMainLooper()).postDelayed({
             checkLoginStatusAndNavigate()
@@ -37,9 +37,8 @@ class SplashActivity : AppCompatActivity() {
             nextActivityIntent = Intent(this, MainActivity::class.java)
         }
 
-        // Ensure the new activity clears the back stack
         nextActivityIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(nextActivityIntent)
-        finish() // Finish SplashActivity so user can't go back to it
+        finish()
     }
 }

@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout // NEW: Import LinearLayout for the overlay
 import android.widget.TextView
 import android.widget.Toast
 import androidx.cardview.widget.CardView
@@ -22,10 +23,12 @@ import com.example.datingapp.api.RetrofitClient
 import com.example.datingapp.models.ApiErrorResponse
 import com.example.datingapp.models.RegisterConstants
 import com.example.datingapp.models.UserLoginRequest
-import com.example.datingapp.utils.showAlertDialog
+import com.example.datingapp.utils.showAlertDialog // Assuming this utility exists
 import com.google.gson.Gson
 import com.yourpackage.yourapp.auth.SessionManager
+import kotlinx.coroutines.Dispatchers // NEW: Import Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext // NEW: Import withContext
 
 class authentication : Fragment() {
 
@@ -35,16 +38,22 @@ class authentication : Fragment() {
     private lateinit var usernameEditText : EditText
     private lateinit var passwordEditText : EditText
 
+    private lateinit var loadingOverlay: LinearLayout
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_authentication, container, false)
+
         loginCardView = view.findViewById(R.id.login_card_view)
         signUpTextView = view.findViewById(R.id.signup)
         usernameEditText = view.findViewById(R.id.email_edit_text)
         passwordEditText = view.findViewById(R.id.password_edit_text)
         loginBtn = view.findViewById(R.id.login_button)
+
+        loadingOverlay = view.findViewById(R.id.loading_overlay)
+
         return view
     }
 
@@ -55,64 +64,80 @@ class authentication : Fragment() {
         popUpAnimation.start()
 
         loginBtn.setOnClickListener {
+            val username = usernameEditText.text.toString().trim()
+            val password = passwordEditText.text.toString().trim()
+
+            if (username.isEmpty() || password.isEmpty()) {
+                Toast.makeText(requireContext(), "Please enter email and password.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             val loginRequest = UserLoginRequest(
-                username = usernameEditText.text.toString(),
-                password = passwordEditText.text.toString()
+                username = username,
+                password = password
             )
 
-            lifecycleScope.launch {
+            showLoading()
+
+            lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     val response = RetrofitClient.apiService.loginUser(loginRequest)
 
-                    if (response.isSuccessful) {
-                        val authResponse = response.body()
-                        authResponse?.let {
-                            saveAuthToken(it.token, it.user.id, it.user.email)
-                            Toast.makeText(requireContext(), "Login Successful!", Toast.LENGTH_SHORT).show()
-                            Log.d("LOGIN_SUCCESS", "Token: ${it.token}, User ID: ${it.user.id}, Email: ${it.user.email}")
-                            val intent = Intent(
-                                activity,
-                                HomeActivity::class.java
-                            )
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                            startActivity(intent)
-                            activity?.finish()
+                    withContext(Dispatchers.Main) {
+                        hideLoading()
 
-                        } ?: run {
-                            showAlertDialog("Login Issue", "Login successful but no response data received.")
-                        }
-                    } else {
-                        var errorMessage: String = "Unknown error occurred."
-                        val errorBody = response.errorBody()?.string()
-                        Log.e("LOGIN_FAILED_API", "Error Body (Status ${response.code()}): $errorBody")
+                        if (response.isSuccessful) {
+                            val authResponse = response.body()
+                            authResponse?.let {
+                                saveAuthToken(it.token, it.user.id, it.user.email)
+                                Log.d("LOGIN_SUCCESS", "Token: ${it.token}, User ID: ${it.user.id}, Email: ${it.user.email}")
+                                val intent = Intent(
+                                    activity,
+                                    HomeActivity::class.java
+                                )
+                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                startActivity(intent)
+                                activity?.finish()
 
-                        if (errorBody != null) {
-                            try {
-                                val apiErrorResponse = Gson().fromJson(errorBody, ApiErrorResponse::class.java)
-
-                                val errors = mutableListOf<String>()
-                                apiErrorResponse.nonFieldErrors?.forEach { errors.add(it) }
-                                apiErrorResponse.usernameErrors?.forEach { errors.add("Username/Email: $it") }
-                                apiErrorResponse.passwordErrors?.forEach { errors.add("Password: $it") }
-                                apiErrorResponse.detail?.let { errors.add(it) }
-
-                                if (errors.isNotEmpty()) {
-                                    errorMessage = "Login Failed:\n" + errors.joinToString("\n")
-                                } else {
-                                    errorMessage = "Login failed with code: ${response.code()}. Server response: $errorBody"
-                                }
-                            } catch (e: Exception) {
-                                Log.e("API_ERROR_PARSE", "Failed to parse error body: $errorBody", e)
-                                errorMessage = "Login failed with code: ${response.code()}. Server response: $errorBody"
+                            } ?: run {
+                                showAlertDialog("Login Issue", "Login successful but no response data received.")
                             }
                         } else {
-                            errorMessage = "Login failed: ${response.code()} ${response.message() ?: "No message"}"
+                            var errorMessage: String = "Unknown error occurred."
+                            val errorBody = response.errorBody()?.string()
+                            Log.e("LOGIN_FAILED_API", "Error Body (Status ${response.code()}): $errorBody")
+
+                            if (errorBody != null) {
+                                try {
+                                    val apiErrorResponse = Gson().fromJson(errorBody, ApiErrorResponse::class.java)
+
+                                    val errors = mutableListOf<String>()
+                                    apiErrorResponse.nonFieldErrors?.forEach { errors.add(it) }
+                                    apiErrorResponse.usernameErrors?.forEach { errors.add("Username/Email: $it") }
+                                    apiErrorResponse.passwordErrors?.forEach { errors.add("Password: $it") }
+                                    apiErrorResponse.detail?.let { errors.add(it) }
+
+                                    if (errors.isNotEmpty()) {
+                                        errorMessage = "Login Failed:\n" + errors.joinToString("\n")
+                                    } else {
+                                        errorMessage = "Login failed with code: ${response.code()}. Server response: $errorBody"
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("API_ERROR_PARSE", "Failed to parse error body: $errorBody", e)
+                                    errorMessage = "Login failed with code: ${response.code()}. Server response: $errorBody"
+                                }
+                            } else {
+                                errorMessage = "Login failed: ${response.code()} ${response.message() ?: "No message"}"
+                            }
+                            showAlertDialog("Login Failed", errorMessage)
                         }
-                        showAlertDialog("Login Failed", errorMessage)
                     }
                 } catch (e: Exception) {
-                    Log.e("NETWORK_ERROR", "Login failed: ${e.message}", e)
-                    showAlertDialog("Network Error", "Unable to connect to the server. Please check your internet connection and try again.")
+                    withContext(Dispatchers.Main) {
+                        hideLoading()
+                        Log.e("NETWORK_ERROR", "Login failed: ${e.message}", e)
+                        showAlertDialog("Network Error", "Unable to connect to the server. Please check your internet connection and try again.")
+                    }
                 }
             }
         }
@@ -146,12 +171,27 @@ class authentication : Fragment() {
                 .addToBackStack(null)
                 .commit()
         }
-
     }
+
     private fun saveAuthToken(token: String, userId: Int, email: String) {
         val sessionManager = SessionManager(requireContext())
         sessionManager.createLoginSession(token, userId, email)
         Log.d("Auth", "Token saved: $token, ID: $userId, Email: $email")
     }
 
+    private fun showLoading() {
+        loadingOverlay.visibility = View.VISIBLE
+        loginBtn.isEnabled = false
+        usernameEditText.isEnabled = false
+        passwordEditText.isEnabled = false
+        signUpTextView.isClickable = false
+    }
+
+    private fun hideLoading() {
+        loadingOverlay.visibility = View.GONE
+        loginBtn.isEnabled = true
+        usernameEditText.isEnabled = true
+        passwordEditText.isEnabled = true
+        signUpTextView.isClickable = true
+    }
 }
